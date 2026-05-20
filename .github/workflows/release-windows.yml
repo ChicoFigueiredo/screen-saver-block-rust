@@ -125,8 +125,12 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
-      - name: Prepare exe asset
+      - name: Prepare, sign (optional) and zip exe
         shell: pwsh
+        env:
+          CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+          TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
         run: |
           $bin = "target/release/screen-saver-blocker-rust.exe"
           if (!(Test-Path $bin)) {
@@ -134,45 +138,47 @@ jobs:
           }
 
           New-Item -ItemType Directory -Path dist -Force | Out-Null
-          Copy-Item $bin "dist/screen-saver-blocker-windows-x64.exe"
-
-      - name: Sign exe (optional)
-        if: ${{ secrets.WINDOWS_CERT_PFX_BASE64 != '' && secrets.WINDOWS_CERT_PASSWORD != '' }}
-        shell: pwsh
-        run: |
           $exe = "dist/screen-saver-blocker-windows-x64.exe"
-          if (!(Test-Path $exe)) {
-            throw "Binary not found at $exe"
+          Copy-Item $bin $exe
+
+          # ── Code-signing (skipped when secrets are absent) ─────────
+          if (-not [string]::IsNullOrWhiteSpace($env:CERT_PFX_BASE64)) {
+            Write-Host "Certificate found – signing binary..."
+            $pfxPath = Join-Path $env:RUNNER_TEMP "codesign.pfx"
+            [System.IO.File]::WriteAllBytes(
+              $pfxPath,
+              [System.Convert]::FromBase64String($env:CERT_PFX_BASE64)
+            )
+
+            $signtool = Get-ChildItem "C:/Program Files (x86)/Windows Kits/10/bin" `
+              -Filter signtool.exe -Recurse |
+              Sort-Object FullName -Descending |
+              Select-Object -First 1
+
+            if (-not $signtool) { throw "signtool.exe not found on runner" }
+
+            $ts = if ([string]::IsNullOrWhiteSpace($env:TIMESTAMP_URL)) {
+              "http://timestamp.digicert.com"
+            } else { $env:TIMESTAMP_URL }
+
+            & $signtool.FullName sign /fd SHA256 /f $pfxPath /p $env:CERT_PASSWORD /tr $ts /td SHA256 $exe
+            if ($LASTEXITCODE -ne 0) { throw "Signing failed (exit $LASTEXITCODE)" }
+
+            Remove-Item $pfxPath -Force
+            Write-Host "Signing complete."
+          } else {
+            Write-Host "No certificate configured – skipping signing."
           }
 
-          $pfxPath = Join-Path $env:RUNNER_TEMP "codesign.pfx"
-          [System.IO.File]::WriteAllBytes($pfxPath, [System.Convert]::FromBase64String("${{ secrets.WINDOWS_CERT_PFX_BASE64 }}"))
-
-          $signtool = Get-ChildItem "C:/Program Files (x86)/Windows Kits/10/bin" -Filter signtool.exe -Recurse |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1
-
-          if (-not $signtool) {
-            throw "signtool.exe not found on runner"
-          }
-
-          $timestampUrl = "${{ vars.WINDOWS_TIMESTAMP_URL }}"
-          if ([string]::IsNullOrWhiteSpace($timestampUrl)) {
-            $timestampUrl = "http://timestamp.digicert.com"
-          }
-
-          & $signtool.FullName sign /fd SHA256 /f $pfxPath /p "${{ secrets.WINDOWS_CERT_PASSWORD }}" /tr $timestampUrl /td SHA256 $exe
-          if ($LASTEXITCODE -ne 0) {
-            throw "Code signing failed with exit code $LASTEXITCODE"
-          }
-
-          Remove-Item $pfxPath -Force
+          # ── Zip ────────────────────────────────────────────────────
+          Compress-Archive -Path $exe -DestinationPath "dist/screen-saver-blocker-windows-x64.zip" -Force
+          Write-Host "Asset ready: dist/screen-saver-blocker-windows-x64.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-release-asset
-          path: dist/screen-saver-blocker-windows-x64.exe
+          path: dist/screen-saver-blocker-windows-x64.zip
 
   publish-release:
     name: Publish GitHub Release
@@ -196,4 +202,4 @@ jobs:
           target_commitish: ${{ needs.create-tag.outputs.merge_sha }}
           generate_release_notes: true
           files: |
-            dist/screen-saver-blocker-windows-x64.exe
+            dist/screen-saver-blocker-windows-x64.zip
