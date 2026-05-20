@@ -1,145 +1,294 @@
-# Screen Saver Blocker (Rust)
+# Screen Saver Blocker — Rust
 
-A Windows command-line tool written in Rust to keep the computer awake and optionally prevent monitor sleep and system shutdown/logoff prompts.
-
----
-
-## English
-
-### Overview
-
-This project reproduces the same purpose of the original implementation in `codigos/screen-saver-blocker`, now in Rust.
-
-It uses Windows APIs (via `windows-rs`) to:
-
-- keep the system awake,
-- optionally keep the display awake,
-- optionally try to block shutdown/logoff while running.
-
-### Features
-
-- `--no-monitor` / `-m`
-  - Prevents monitor sleep and system sleep.
-- default mode (without `--no-monitor`)
-  - Prevents system sleep, allows monitor power saving.
-- `--no-kill` / `-k`
-  - Installs shutdown/logoff handlers and keeps a hidden message window to respond to end-session events.
-- `--help` / `-h`
-  - Shows CLI usage.
-
-### Requirements
-
-- Windows
-- Rust toolchain
-- Recommended: GNU toolchain + MinGW tools available in `PATH`
-
-This repository was validated with:
-
-- Rust stable
-- target `x86_64-pc-windows-gnu`
-- `dlltool.exe` available (for GNU flow)
-
-### Build
-
-```bash
-cargo check
-cargo build
-```
-
-### Run
-
-```bash
-# Show help
-cargo run -- --help
-
-# Keep system + monitor awake
-cargo run -- --no-monitor
-
-# Keep system awake and enable shutdown/logoff blocking handlers
-cargo run -- --no-kill
-```
-
-### Behavior Notes
-
-- In non-`--no-kill` mode, press any key to stop.
-- In `--no-kill` mode, press `q` to stop.
-- On exit, the execution state is reset to `ES_CONTINUOUS`.
-
-### Troubleshooting
-
-If you see linker/tool errors on Windows:
-
-1. Ensure Rust is installed and available in `PATH`.
-2. Ensure `dlltool.exe` is available for GNU target builds.
-3. If using MSVC target, ensure full Visual C++ build tools are correctly configured.
+> **Mantém o Windows ativo.** Impede economia de energia do monitor, suspensão do sistema e bloqueio de logoff/desligamento — com interface TUI interativa no terminal.
 
 ---
 
-## Portugues (Brasil)
+## Índice
 
-### Visao Geral
+- [Download rápido](#download-rápido)
+- [Visão geral](#visão-geral)
+- [Interface TUI](#interface-tui)
+- [Compilar localmente](#compilar-localmente)
+- [CI/CD e releases automáticas](#cicd-e-releases-automáticas)
+- [Assinatura de código (code signing)](#assinatura-de-código-code-signing)
+- [Estrutura do projeto](#estrutura-do-projeto)
+- [English summary](#english-summary)
 
-Esta ferramenta de linha de comando para Windows foi escrita em Rust para reproduzir a mesma finalidade da versao original em `codigos/screen-saver-blocker`.
+---
 
-Ela usa APIs do Windows (via `windows-rs`) para:
+## Download rápido
 
-- manter o computador ativo,
-- opcionalmente manter o monitor ativo,
-- opcionalmente tentar bloquear desligamento/logoff enquanto estiver em execucao.
+Acesse a aba [**Releases**](../../releases/latest) e baixe o arquivo:
 
-### Funcionalidades
+```
+screen-saver-blocker-windows-x64.zip
+```
 
-- `--no-monitor` / `-m`
-  - Impede desligamento do monitor e suspensao do sistema.
-- modo padrao (sem `--no-monitor`)
-  - Impede suspensao do sistema e permite economia de energia do monitor.
-- `--no-kill` / `-k`
-  - Registra handlers de desligamento/logoff e cria uma janela oculta para responder eventos de fim de sessao.
-- `--help` / `-h`
-  - Mostra ajuda da linha de comando.
+Extraia o `.exe` e execute diretamente — sem instalação.
+
+> O executável é compilado automaticamente pelo GitHub Actions a cada merge na branch `main`.
+
+---
+
+## Visão geral
+
+Ferramenta de linha de comando para Windows, escrita em Rust, que usa APIs Win32 (via `windows-rs`) para:
+
+| Função | Status inicial |
+|--------|----------------|
+| Impedir suspensão do sistema | Ativado sempre ao abrir |
+| Impedir desligamento do monitor | Alternável via tecla **M** |
+| Bloquear desligamento / logoff | Alternável via tecla **S** |
+
+O estado de cada função é exibido em tempo real na interface TUI e pode ser alternado interativamente sem reiniciar o programa.
+
+---
+
+## Interface TUI
+
+A interface é renderizada com [ratatui](https://github.com/ratatui-org/ratatui) + [crossterm](https://github.com/crossterm-rs/crossterm) e se adapta ao tamanho do terminal (3 variantes de título responsivo).
+
+```
+╔══════════════════════════════════════════════════╗
+║   SCREEN SAVER BLOCKER  (título ASCII art)       ║
+╠══════════════════════════════════════════════════╣
+║                                                  ║
+║  [ MONITOR SLEEP ]    Status: BLOQUEADO          ║
+║  [ SHUTDOWN/LOGOFF ]  Status: LIBERADO           ║
+║                                                  ║
+║  M=Monitor  S=Shutdown  Q/ESC=Sair               ║
+╚══════════════════════════════════════════════════╝
+```
+
+### Atalhos de teclado
+
+| Tecla | Ação |
+|-------|------|
+| `M` / `m` | Liga/desliga bloqueio do monitor |
+| `S` / `s` | Liga/desliga bloqueio de desligamento/logoff |
+| `Tab` / `↓` / `↑` | Navega entre os itens |
+| `Enter` / `Espaço` | Alterna o item selecionado |
+| `Q` / `q` / `ESC` | Encerra o programa |
+
+### Mouse
+
+Clique direto nas linhas dos botões na TUI para alternar os estados.
+
+---
+
+## Compilar localmente
 
 ### Requisitos
 
-- Windows
-- Rust instalado
-- Recomendado: toolchain GNU + ferramentas MinGW no `PATH`
+- **Rust stable** — instale em [rustup.rs](https://rustup.rs)
+- **Windows** (obrigatório — usa APIs Win32)
+- Toolchain **GNU**: MinGW (`dlltool.exe`) no `PATH`
+- Toolchain **MSVC**: Visual Studio Build Tools *(necessário para ícone no .exe)*
 
-Validado neste projeto com:
-
-- Rust stable
-- target `x86_64-pc-windows-gnu`
-- `dlltool.exe` disponivel (fluxo GNU)
-
-### Compilacao
+### Comandos
 
 ```bash
+# Verificar dependências
 cargo check
+
+# Compilar debug
 cargo build
+
+# Compilar release (otimizado)
+cargo build --release
+
+# Executar diretamente
+cargo run
 ```
 
-### Execucao
+O executável de release fica em `target/release/screen-saver-blocker-rust.exe`.
+
+### Ícone no executável
+
+O arquivo `build.rs` embute automaticamente um ícone no `.exe` quando a compilação usa toolchain **MSVC** (`x86_64-pc-windows-msvc`). Com toolchain GNU, o build continua normalmente mas sem ícone — uma mensagem de aviso é exibida no log de compilação.
+
+O GitHub Actions usa `windows-latest` com MSVC, então o binário da release **sempre tem ícone embutido**.
+
+---
+
+## CI/CD e releases automáticas
+
+### Fluxo completo
+
+```
+Abrir PR ──► build de verificação (Windows MSVC)
+                 │
+Merge PR  ──► tag semver auto-incrementada (vX.Y.Z)
+                 │
+             Compilar release binary (MSVC + ícone embutido)
+                 │
+             Assinar .exe  ◄── opcional, pula se sem certificado
+                 │
+             Zipar ──► screen-saver-blocker-windows-x64.zip
+                 │
+             Publicar GitHub Release com o .zip
+```
+
+### Trigger
+
+O workflow `.github/workflows/release-windows.yml` é acionado apenas em pull requests para `main`:
+
+| Evento | O que acontece |
+|--------|----------------|
+| PR aberto / atualizado | Build de verificação no runner Windows |
+| PR mergeado | Tag semver + build + release publicada |
+
+### Versionamento automático
+
+A tag é calculada automaticamente:
+- Lê todas as tags `vX.Y.Z` existentes no repositório.
+- Incrementa o `patch` (ex.: `v0.1.2` → `v0.1.3`).
+- Evita colisão com tags já existentes no remote.
+
+---
+
+## Assinatura de código (code signing)
+
+O workflow suporta assinatura opcional do `.exe`. Sem certificado configurado, a etapa é pulada automaticamente e o binário é distribuído sem assinatura (Windows pode exibir aviso SmartScreen).
+
+### Posso usar Certbot para isso?
+
+Não. O **Certbot** emite certificados TLS/HTTPS (ex.: Let's Encrypt) para sites e servidores, e **não** certificados de assinatura de código.
+
+Para assinar executáveis Windows você precisa de um certificado **Code Signing** em formato PFX (OV/EV) emitido por uma CA compatível, ou usar um certificado autoassinado para testes internos.
+
+### Opção 1 — Certificado auto-assinado (gratuito, para uso pessoal/interno)
+
+Execute o PowerShell abaixo **como Administrador** na sua máquina Windows:
+
+```powershell
+# 1. Gerar o certificado no repositório pessoal do usuário
+$cert = New-SelfSignedCertificate `
+  -Subject "CN=Screen Saver Blocker, O=SeuNome" `
+  -Type CodeSigningCert `
+  -CertStoreLocation Cert:\CurrentUser\My `
+  -NotAfter (Get-Date).AddYears(5)
+
+# 2. Exportar como PFX protegido por senha
+$pwd = ConvertTo-SecureString -String "SUA_SENHA_FORTE" -Force -AsPlainText
+Export-PfxCertificate -Cert $cert -FilePath "codesign.pfx" -Password $pwd
+
+# 3. Converter para Base64 e copiar para a área de transferência
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("codesign.pfx")) | Set-Clipboard
+Write-Host "Base64 copiado. Cole no secret do GitHub."
+
+# 4. Remover o arquivo do disco após copiar
+Remove-Item "codesign.pfx" -Force
+```
+
+> **Limitação**: certificado auto-assinado **não elimina** o aviso SmartScreen do Windows. O sistema confia apenas em certificados emitidos por autoridades reconhecidas pela Microsoft.
+
+---
+
+### Opção 2 — Certificado comercial (recomendado para distribuição pública)
+
+| Fornecedor | Tipo | Aprox. preço/ano | Remove SmartScreen |
+|------------|------|------------------|--------------------|
+| [Sectigo](https://sectigo.com/ssl-certificates-tls/code-signing) | OV | ~US$ 200 | Parcial (acumula reputação) |
+| [DigiCert](https://www.digicert.com/signing/code-signing-certificates) | OV/EV | ~US$ 300–500 | EV = imediato |
+| [GlobalSign](https://www.globalsign.com/en/code-signing-certificate/) | OV/EV | similar | EV = imediato |
+
+- **OV** (Organization Validation): elimina SmartScreen gradualmente conforme o binário ganha reputação.
+- **EV** (Extended Validation): requer token físico USB/HSM; elimina SmartScreen imediatamente desde o primeiro download.
+
+Resumo rápido de compra/emissão:
+1. Escolha uma CA (Sectigo, DigiCert, GlobalSign etc.) e compre Code Signing OV ou EV.
+2. Conclua a validação da organização solicitada pela CA.
+3. Receba o certificado (arquivo PFX ou token/HSM, dependendo do plano).
+4. Exporte/obtenha um PFX utilizável no CI, converta para Base64 e configure os secrets do GitHub.
+
+---
+
+### Opção 3 — SignPath.io (gratuito para projetos open source)
+
+O [SignPath Foundation](https://signpath.io/product/open-source/) oferece assinatura gratuita para projetos públicos no GitHub. Requer inscrição e aprovação do projeto.
+
+---
+
+### Configurar os secrets no GitHub
+
+Após obter o certificado (qualquer opção), configure no repositório em **Settings → Secrets and variables → Actions**:
+
+| Tipo | Nome | Valor |
+|------|------|-------|
+| **Secret** | `WINDOWS_CERT_PFX_BASE64` | Conteúdo do `.pfx` em Base64 |
+| **Secret** | `WINDOWS_CERT_PASSWORD` | Senha do `.pfx` |
+| **Variable** | `WINDOWS_TIMESTAMP_URL` | URL do servidor de timestamp *(opcional)* |
+
+Servidores de timestamp gratuitos (use um compatível com seu certificado):
+
+| Fornecedor | URL |
+|------------|-----|
+| DigiCert *(padrão do workflow)* | `http://timestamp.digicert.com` |
+| Sectigo | `http://timestamp.sectigo.com` |
+| GlobalSign | `http://timestamp.globalsign.com/scripts/timstamp.dll` |
+
+> Se `WINDOWS_CERT_PFX_BASE64` não estiver configurado, o workflow **pula a assinatura silenciosamente** e publica o `.zip` sem assinar.
+
+---
+
+## Estrutura do projeto
+
+```
+screen.saver.blocker-rust/
+├── src/
+│   └── main.rs                       # Loop TUI, integração Win32, lógica de bloqueio
+├── build.rs                          # Embute ícone no .exe (MSVC only)
+├── Cargo.toml                        # Dependências e metadados do executável
+├── .github/
+│   └── workflows/
+│       └── release-windows.yml       # Pipeline CI/CD completo
+└── README.md
+```
+
+### Dependências principais
+
+| Crate | Versão | Uso |
+|-------|--------|-----|
+| `ratatui` | 0.28 | Renderização da TUI |
+| `crossterm` | 0.29 | Eventos de teclado/mouse, modo raw |
+| `windows` | 0.58 | APIs Win32: Power, Shutdown, Messaging |
+| `winres` | 0.1 | Embute ícone e metadados no `.exe` *(build-dep)* |
+
+---
+
+## English summary
+
+**Screen Saver Blocker** is a Windows TUI application written in Rust that prevents the system from going to sleep, optionally keeps the monitor on, and optionally blocks shutdown/logoff events — all controllable in real time via keyboard or mouse.
+
+### Quick start
+
+1. Download `screen-saver-blocker-windows-x64.zip` from [**Releases**](../../releases/latest).
+2. Extract and run `screen-saver-blocker-windows-x64.exe`.
+3. No installation required.
+
+### Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| `M` | Toggle monitor sleep prevention |
+| `S` | Toggle shutdown/logoff blocking |
+| `Q` / `ESC` | Quit |
+
+### Build from source
 
 ```bash
-# Mostrar ajuda
-cargo run -- --help
-
-# Manter sistema + monitor ativos
-cargo run -- --no-monitor
-
-# Manter sistema ativo com handlers de bloqueio de desligamento/logoff
-cargo run -- --no-kill
+cargo build --release
+# Output: target/release/screen-saver-blocker-rust.exe
 ```
 
-### Observacoes de Comportamento
+Requires Rust stable on Windows. Icon embedding requires MSVC toolchain.
 
-- No modo sem `--no-kill`, pressione qualquer tecla para encerrar.
-- No modo `--no-kill`, pressione `q` para encerrar.
-- Ao sair, o estado de execucao eh restaurado para `ES_CONTINUOUS`.
+### Automated releases
 
-### Solucao de Problemas
+Releases are created automatically via GitHub Actions on every PR merged to `main`. The binary is compiled with MSVC (icon embedded), optionally code-signed, zipped, and published as a GitHub Release.
 
-Se ocorrer erro de linker/ferramentas no Windows:
+### Code signing
 
-1. Verifique se o Rust esta instalado e no `PATH`.
-2. Verifique se `dlltool.exe` esta disponivel para builds com target GNU.
-3. Se usar target MSVC, confira se as ferramentas de build C++ do Visual Studio estao instaladas e configuradas.
+Optional. Configure repository secrets `WINDOWS_CERT_PFX_BASE64` and `WINDOWS_CERT_PASSWORD` with a PFX certificate (Base64-encoded). Without them, the workflow skips signing and publishes unsigned. See the [Assinatura de código](#assinatura-de-código-code-signing) section for full setup instructions.
