@@ -1,32 +1,97 @@
-name: Release Windows
+name: PR Windows Build and Release
 
 on:
-  push:
-    tags:
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag da release (ex.: v1.0.0)"
-        required: true
-        type: string
-      prerelease:
-        description: "Publicar como pre-release"
-        required: false
-        default: false
-        type: boolean
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
 jobs:
-  build-windows:
-    name: Build Windows binary
+  pr-build-check:
+    name: PR build check (Windows)
+    if: ${{ github.event.action != 'closed' }}
     runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+  create-tag:
+    name: Auto-increment tag on merge
+    if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.next_tag.outputs.value }}
+
+    steps:
+      - name: Checkout main with full history
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Compute next patch tag
+        id: next_tag
+        shell: bash
+        run: |
+          latest_tag=$(git tag -l 'v*' --sort=-v:refname | head -n 1)
+
+          if [[ -z "$latest_tag" ]]; then
+            next_tag="v0.1.0"
+          else
+            version="${latest_tag#v}"
+            IFS='.' read -r major minor patch <<< "$version"
+
+            if [[ -z "$major" || -z "$minor" || -z "$patch" ]]; then
+              echo "Tag inválida encontrada: $latest_tag"
+              exit 1
+            fi
+
+            patch=$((patch + 1))
+            next_tag="v${major}.${minor}.${patch}"
+          fi
+
+          echo "value=$next_tag" >> "$GITHUB_OUTPUT"
+          echo "Próxima tag: $next_tag"
+
+      - name: Create and push tag
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.next_tag.outputs.value }}"
+          git push origin "${{ steps.next_tag.outputs.value }}"
+
+  build-release-asset:
+    name: Build Windows release asset
+    needs: create-tag
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout created tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.create-tag.outputs.tag }}
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -57,7 +122,9 @@ jobs:
 
   publish-release:
     name: Publish GitHub Release
-    needs: build-windows
+    needs:
+      - create-tag
+      - build-release-asset
     runs-on: ubuntu-latest
 
     steps:
@@ -67,23 +134,12 @@ jobs:
           name: windows-release-asset
           path: dist
 
-      - name: Resolve release tag
-        id: resolve_tag
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Create or update GitHub release
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.resolve_tag.outputs.value }}
-          name: Release ${{ steps.resolve_tag.outputs.value }}
-          target_commitish: ${{ github.sha }}
+          tag_name: ${{ needs.create-tag.outputs.tag }}
+          name: Release ${{ needs.create-tag.outputs.tag }}
+          target_commitish: main
           generate_release_notes: true
-          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease == true }}
           files: |
             dist/screen-saver-blocker-windows-x64.zip
