@@ -54,22 +54,30 @@ jobs:
         id: next_tag
         shell: bash
         run: |
-          latest_tag=$(git tag -l 'v*' --sort=-v:refname | head -n 1)
+          semver_tags=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+(\.[0-9]+)?$' || true)
 
-          if [[ -z "$latest_tag" ]]; then
-            next_tag="v0.1.0"
+          if [[ -z "$semver_tags" ]]; then
+            major=0
+            minor=1
+            patch=0
           else
+            # Normaliza vX.Y para vX.Y.0 para ordenar corretamente.
+            normalized_tags=$(printf "%s\n" "$semver_tags" | sed -E 's/^v([0-9]+\.[0-9]+)$/v\1.0/')
+            latest_tag=$(printf "%s\n" "$normalized_tags" | sort -V | tail -n 1)
+
             version="${latest_tag#v}"
             IFS='.' read -r major minor patch <<< "$version"
+            patch=$((patch + 1))
+          fi
 
-            if [[ -z "$major" || -z "$minor" || -z "$patch" ]]; then
-              echo "Tag inválida encontrada: $latest_tag"
-              exit 1
-            fi
+          next_tag="v${major}.${minor}.${patch}"
 
+          # Evita colisão de tag (ex.: rerun ou concorrência eventual).
+          while git rev-parse -q --verify "refs/tags/$next_tag" >/dev/null || \
+                git ls-remote --tags origin "refs/tags/$next_tag" | grep -q "$next_tag"; do
             patch=$((patch + 1))
             next_tag="v${major}.${minor}.${patch}"
-          fi
+          done
 
           echo "value=$next_tag" >> "$GITHUB_OUTPUT"
           echo "Próxima tag: $next_tag"
