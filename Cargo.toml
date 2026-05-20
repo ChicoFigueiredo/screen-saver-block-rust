@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 crossterm = "0.29"
+ratatui = { version = "0.28", features = ["serde"] }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [
