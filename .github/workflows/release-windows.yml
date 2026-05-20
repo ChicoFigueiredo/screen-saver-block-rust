@@ -42,6 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.next_tag.outputs.value }}
+      merge_sha: ${{ steps.merged_commit.outputs.value }}
 
     steps:
       - name: Checkout main with full history
@@ -82,12 +83,26 @@ jobs:
           echo "value=$next_tag" >> "$GITHUB_OUTPUT"
           echo "Próxima tag: $next_tag"
 
+      - name: Resolve merged commit sha
+        id: merged_commit
+        shell: bash
+        run: |
+          sha="${{ github.event.pull_request.merge_commit_sha }}"
+          if [[ -z "$sha" ]]; then
+            echo "merge_commit_sha não informado pelo evento."
+            exit 1
+          fi
+
+          git cat-file -e "$sha^{commit}"
+          echo "value=$sha" >> "$GITHUB_OUTPUT"
+          echo "Commit mergeado: $sha"
+
       - name: Create and push tag
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "${{ steps.next_tag.outputs.value }}"
+          git tag "${{ steps.next_tag.outputs.value }}" "${{ steps.merged_commit.outputs.value }}"
           git push origin "${{ steps.next_tag.outputs.value }}"
 
   build-release-asset:
@@ -147,7 +162,7 @@ jobs:
         with:
           tag_name: ${{ needs.create-tag.outputs.tag }}
           name: Release ${{ needs.create-tag.outputs.tag }}
-          target_commitish: main
+          target_commitish: ${{ needs.create-tag.outputs.merge_sha }}
           generate_release_notes: true
           files: |
             dist/screen-saver-blocker-windows-x64.zip
