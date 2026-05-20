@@ -8,7 +8,7 @@ mod app {
     use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
     use ratatui::{
         backend::{Backend, CrosstermBackend},
-        layout::{Alignment, Constraint, Direction, Layout, Rect},
+        layout::{Alignment, Constraint, Direction, Layout},
         style::{Color, Modifier, Style},
         text::{Line, Span},
         widgets::{Block, Borders, Paragraph},
@@ -53,16 +53,20 @@ mod app {
             return;
         }
 
-        let mut state = UiState {
-            no_monitor: args.iter().any(|arg| arg == "--no-monitor" || arg == "-m"),
-            no_kill: args.iter().any(|arg| arg == "--no-kill" || arg == "-k"),
-            selected_button: 0,
-            running: true,
-        };
-
-        if args.len() > 1 && !args.iter().any(|arg| arg == "--ui") {
-            run_blocking_mode(state.no_monitor, state.no_kill);
+        // Se há argumentos (que não sejam --help), executar modo CLI direto
+        // Senão, abrir TUI interativa
+        if args.len() > 1 {
+            let no_monitor = args.iter().any(|arg| arg == "--no-monitor" || arg == "-m");
+            let no_kill = args.iter().any(|arg| arg == "--no-kill" || arg == "-k");
+            NO_KILL_ACTIVE.store(no_kill, Ordering::Relaxed);
+            run_blocking_mode(no_monitor, no_kill);
         } else {
+            let mut state = UiState {
+                no_monitor: false,
+                no_kill: false,
+                selected_button: 0,
+                running: true,
+            };
             if let Err(e) = run_tui(&mut state) {
                 eprintln!("TUI Error: {}", e);
             }
@@ -70,11 +74,19 @@ mod app {
     }
 
     fn print_usage() {
+        println!("Screen Saver Blocker v0.8.1");
+        println!();
         println!("Uso: screen-saver-blocker-rust [opcoes]");
-        println!("  --no-monitor, -m  Impede o monitor de desligar");
-        println!("  --no-kill, -k     Impede o computador de ser desligado");
-        println!("  --ui               Força modo TUI interativo");
-        println!("  --help, -h        Mostra esta ajuda");
+        println!();
+        println!("Opcoes:");
+        println!("  --no-monitor, -m   Impede o monitor de desligar");
+        println!("  --no-kill, -k      Impede o computador de ser desligado");
+        println!("  --help, -h         Mostra esta ajuda");
+        println!();
+        println!("Exemplos:");
+        println!("  screen-saver-blocker-rust              # Abre interface TUI");
+        println!("  screen-saver-blocker-rust --no-monitor # Mantém monitor ligado");
+        println!("  screen-saver-blocker-rust --no-kill    # Bloqueia desligamento");
     }
 
     fn run_tui(state: &mut UiState) -> Result<(), Box<dyn std::error::Error>> {
@@ -100,21 +112,19 @@ mod app {
                 draw_ui(f, state);
             })?;
 
-            if crossterm::event::poll(Duration::from_millis(100))? {
+            if crossterm::event::poll(Duration::from_millis(200))? {
                 match event::read()? {
                     Event::Key(key) => {
                         handle_key_event(key, state);
-                        if !state.running {
-                            break;
-                        }
                     }
                     Event::Mouse(mouse) => {
                         handle_mouse_event(mouse, state);
-                        if !state.running {
-                            break;
-                        }
                     }
                     _ => {}
+                }
+                
+                if !state.running {
+                    break;
                 }
             }
         }
@@ -131,102 +141,159 @@ mod app {
     fn draw_ui(f: &mut Frame, state: &UiState) {
         let size = f.size();
 
-        let chunks = Layout::default()
+        let main_chunks = Layout::default()
             .direction(Direction::Vertical)
-            .margin(2)
-            .constraints(
-                [
-                    Constraint::Length(3),
-                    Constraint::Length(3),
-                    Constraint::Min(5),
-                ]
-                .as_ref(),
-            )
+            .constraints([
+                Constraint::Length(8),
+                Constraint::Min(12),
+                Constraint::Length(2),
+            ])
             .split(size);
 
-        let title = Paragraph::new("Screen Saver Blocker")
-            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        // ASCII Art Title
+        let title_art = vec![
+            Line::from(vec![
+                Span::styled("╔═══════════════════════════════════════════╗", Style::default().fg(Color::Cyan)),
+            ]),
+            Line::from(vec![
+                Span::styled("║     ", Style::default().fg(Color::Cyan)),
+                Span::styled("███████╗ ██████╗ ███████╗███████╗██╗", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled("  ║", Style::default().fg(Color::Cyan)),
+            ]),
+            Line::from(vec![
+                Span::styled("║     ", Style::default().fg(Color::Cyan)),
+                Span::styled("██╔════╝██╔════╝ ██╔════╝██╔════╝██║", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled("  ║", Style::default().fg(Color::Cyan)),
+            ]),
+            Line::from(vec![
+                Span::styled("║     ", Style::default().fg(Color::Cyan)),
+                Span::styled("███████╗██║  ███╗███████╗█████╗  ██║", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled("  ║", Style::default().fg(Color::Cyan)),
+            ]),
+            Line::from(vec![
+                Span::styled("║     ", Style::default().fg(Color::Cyan)),
+                Span::styled("╚════██║██║   ██║╚════██║██╔══╝  ██║", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled("  ║", Style::default().fg(Color::Cyan)),
+            ]),
+            Line::from(vec![
+                Span::styled("║     ", Style::default().fg(Color::Cyan)),
+                Span::styled("███████║╚██████╔╝███████║███████╗██║", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled("  ║", Style::default().fg(Color::Cyan)),
+            ]),
+            Line::from(vec![
+                Span::styled("║", Style::default().fg(Color::Cyan)),
+                Span::raw("  Keep your computer awake "),
+                Span::styled("           ║", Style::default().fg(Color::Cyan)),
+            ]),
+            Line::from(vec![
+                Span::styled("╚═══════════════════════════════════════════╝", Style::default().fg(Color::Cyan)),
+            ]),
+        ];
+        let title = Paragraph::new(title_art)
             .alignment(Alignment::Center);
-        f.render_widget(title, chunks[0]);
+        f.render_widget(title, main_chunks[0]);
 
-        let subtitle = Paragraph::new("Keep your computer awake")
-            .style(Style::default().fg(Color::Gray))
-            .alignment(Alignment::Center);
-        f.render_widget(subtitle, chunks[1]);
-
-        let control_chunks = Layout::default()
+        // Options section
+        let option_chunks = Layout::default()
             .direction(Direction::Vertical)
-            .margin(1)
-            .constraints(
-                [
-                    Constraint::Length(3),
-                    Constraint::Length(3),
-                    Constraint::Length(3),
-                    Constraint::Min(0),
-                ]
-                .as_ref(),
-            )
-            .split(chunks[2]);
+            .margin(3)
+            .constraints([
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Min(2),
+            ])
+            .split(main_chunks[1]);
 
-        let button1_style = if state.selected_button == 0 {
+        // Button 1: Monitor
+        let b1_selected = state.selected_button == 0;
+        let b1_state = if state.no_monitor { "●" } else { "○" };
+        let b1_label = format!("{}  Keep Monitor Awake", b1_state);
+        let b1_style = if b1_selected {
             Style::default().bg(Color::Blue).fg(Color::White).add_modifier(Modifier::BOLD)
         } else {
-            Style::default()
+            Style::default().fg(Color::Cyan)
         };
-        let button1_text = if state.no_monitor {
-            "[✓] Keep Monitor Awake (ON)"
+        let b1_text = if b1_selected {
+            format!("  ▶ {}  ◀  ", b1_label)
         } else {
-            "[ ] Keep Monitor Awake (OFF)"
+            format!("    {}    ", b1_label)
         };
-        let button1 = Paragraph::new(button1_text)
-            .style(button1_style)
-            .block(Block::default().borders(Borders::ALL).title("Option 1"))
+        let button1 = Paragraph::new(b1_text)
+            .style(b1_style)
+            .block(Block::default().borders(Borders::ALL).border_style(
+                if b1_selected { Style::default().fg(Color::Blue) } else { Style::default().fg(Color::DarkGray) }
+            ))
             .alignment(Alignment::Center);
-        f.render_widget(button1, control_chunks[0]);
+        f.render_widget(button1, option_chunks[0]);
 
-        let button2_style = if state.selected_button == 1 {
+        // Button 2: Kill
+        let b2_selected = state.selected_button == 1;
+        let b2_state = if state.no_kill { "●" } else { "○" };
+        let b2_label = format!("{}  Block Shutdown/Logoff", b2_state);
+        let b2_style = if b2_selected {
             Style::default().bg(Color::Blue).fg(Color::White).add_modifier(Modifier::BOLD)
         } else {
-            Style::default()
+            Style::default().fg(Color::Cyan)
         };
-        let button2_text = if state.no_kill {
-            "[✓] Block Shutdown/Logoff (ON)"
+        let b2_text = if b2_selected {
+            format!("  ▶ {}  ◀  ", b2_label)
         } else {
-            "[ ] Block Shutdown/Logoff (OFF)"
+            format!("    {}    ", b2_label)
         };
-        let button2 = Paragraph::new(button2_text)
-            .style(button2_style)
-            .block(Block::default().borders(Borders::ALL).title("Option 2"))
+        let button2 = Paragraph::new(b2_text)
+            .style(b2_style)
+            .block(Block::default().borders(Borders::ALL).border_style(
+                if b2_selected { Style::default().fg(Color::Blue) } else { Style::default().fg(Color::DarkGray) }
+            ))
             .alignment(Alignment::Center);
-        f.render_widget(button2, control_chunks[1]);
+        f.render_widget(button2, option_chunks[1]);
 
-        let button3_style = if state.selected_button == 2 {
-            Style::default().bg(Color::Green).fg(Color::White).add_modifier(Modifier::BOLD)
+        // Button 3: Start
+        let b3_selected = state.selected_button == 2;
+        let b3_style = if b3_selected {
+            Style::default().bg(Color::Green).fg(Color::Black).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::Green)
         };
-        let button3 = Paragraph::new("[ START ]")
-            .style(button3_style)
-            .block(Block::default().borders(Borders::ALL).title("Action"))
+        let b3_text = if b3_selected {
+            "  ▶ ★  START  ★  ◀  ".to_string()
+        } else {
+            "    ★  START  ★    ".to_string()
+        };
+        let button3 = Paragraph::new(b3_text)
+            .style(b3_style)
+            .block(Block::default().borders(Borders::ALL).border_style(
+                if b3_selected { Style::default().fg(Color::Green) } else { Style::default().fg(Color::DarkGray) }
+            ))
             .alignment(Alignment::Center);
-        f.render_widget(button3, control_chunks[2]);
+        f.render_widget(button3, option_chunks[2]);
 
+        // Instructions
         let instructions = vec![
             Line::from(vec![
-                Span::styled("TAB", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" or "),
-                Span::styled("Arrows", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" • "),
-                Span::styled("Space/Enter", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" • "),
-                Span::styled("ESC", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to quit"),
+                Span::styled("TAB", Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow)),
+                Span::raw(" / "),
+                Span::styled("↑↓", Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow)),
+                Span::raw("  Navigate  •  "),
+                Span::styled("SPACE", Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow)),
+                Span::raw(" / "),
+                Span::styled("ENTER", Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow)),
+                Span::raw("  Toggle  •  "),
+                Span::styled("ESC", Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow)),
+                Span::raw("  Quit"),
             ]),
         ];
         let help = Paragraph::new(instructions)
             .style(Style::default().fg(Color::DarkGray))
             .alignment(Alignment::Center);
-        f.render_widget(help, control_chunks[3]);
+        f.render_widget(help, option_chunks[3]);
+
+        // Footer
+        let footer = Paragraph::new("v0.8.1")
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(Alignment::Right);
+        f.render_widget(footer, main_chunks[2]);
     }
 
     fn handle_key_event(key: KeyEvent, state: &mut UiState) {
@@ -254,7 +321,15 @@ mod app {
             KeyCode::Down => {
                 state.selected_button = (state.selected_button + 1) % 3;
             }
-            KeyCode::Enter | KeyCode::Char(' ') => {
+            KeyCode::Enter => {
+                match state.selected_button {
+                    0 => state.no_monitor = !state.no_monitor,
+                    1 => state.no_kill = !state.no_kill,
+                    2 => state.running = false,
+                    _ => {}
+                }
+            }
+            KeyCode::Char(' ') => {
                 match state.selected_button {
                     0 => state.no_monitor = !state.no_monitor,
                     1 => state.no_kill = !state.no_kill,
