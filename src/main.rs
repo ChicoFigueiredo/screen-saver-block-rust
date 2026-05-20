@@ -229,46 +229,59 @@ mod app {
             ])
             .split(size);
 
-        // ── ASCII Art Title ──────────────────────────────────────────
-        let title_art = vec![
-            Line::from(vec![
-                Span::styled("╔═══════════════════════════════════════════╗", Style::default().fg(Color::Cyan)),
-            ]),
-            Line::from(vec![
-                Span::styled("║     ", Style::default().fg(Color::Cyan)),
-                Span::styled("███████╗ ██████╗ ███████╗███████╗██╗", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::styled("  ║", Style::default().fg(Color::Cyan)),
-            ]),
-            Line::from(vec![
-                Span::styled("║     ", Style::default().fg(Color::Cyan)),
-                Span::styled("██╔════╝██╔════╝ ██╔════╝██╔════╝██║", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::styled("  ║", Style::default().fg(Color::Cyan)),
-            ]),
-            Line::from(vec![
-                Span::styled("║     ", Style::default().fg(Color::Cyan)),
-                Span::styled("███████╗██║  ███╗███████╗█████╗  ██║", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::styled("  ║", Style::default().fg(Color::Cyan)),
-            ]),
-            Line::from(vec![
-                Span::styled("║     ", Style::default().fg(Color::Cyan)),
-                Span::styled("╚════██║██║   ██║╚════██║██╔══╝  ██║", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::styled("  ║", Style::default().fg(Color::Cyan)),
-            ]),
-            Line::from(vec![
-                Span::styled("║     ", Style::default().fg(Color::Cyan)),
-                Span::styled("███████║╚██████╔╝███████║███████╗██║", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::styled("  ║", Style::default().fg(Color::Cyan)),
-            ]),
-            Line::from(vec![
-                Span::styled("║", Style::default().fg(Color::Cyan)),
-                Span::raw("  Keep your computer awake "),
-                Span::styled("           ║", Style::default().fg(Color::Cyan)),
-            ]),
-            Line::from(vec![
-                Span::styled("╚═══════════════════════════════════════════╝", Style::default().fg(Color::Cyan)),
-            ]),
-        ];
-        let title = Paragraph::new(title_art).alignment(Alignment::Center);
+        // ── ASCII Art Title (responsivo) ─────────────────────────────
+        let title_art = if size.width >= 46 {
+            vec![
+                Line::from(Span::styled(
+                    "███████╗ ██████╗ ███████╗███████╗██╗",
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                )),
+                Line::from(Span::styled(
+                    "██╔════╝██╔════╝ ██╔════╝██╔════╝██║",
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                )),
+                Line::from(Span::styled(
+                    "███████╗██║  ███╗███████╗█████╗  ██║",
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                )),
+                Line::from(Span::styled(
+                    "╚════██║██║   ██║╚════██║██╔══╝  ██║",
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                )),
+                Line::from(Span::styled(
+                    "███████║╚██████╔╝███████║███████╗██║",
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                )),
+                Line::from(Span::styled(
+                    "Keep your computer awake",
+                    Style::default().fg(Color::Gray),
+                )),
+            ]
+        } else if size.width >= 30 {
+            vec![
+                Line::from(Span::styled(
+                    "SGSEI",
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                )),
+                Line::from(Span::styled(
+                    "Keep your computer awake",
+                    Style::default().fg(Color::Gray),
+                )),
+            ]
+        } else {
+            vec![Line::from(Span::styled(
+                "SGSEI",
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            ))]
+        };
+
+        let title = Paragraph::new(title_art)
+            .alignment(Alignment::Center)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Cyan)),
+            );
         f.render_widget(title, main_chunks[0]);
 
         // ── Status Bar ───────────────────────────────────────────────
@@ -358,6 +371,8 @@ mod app {
             Span::styled("ENTER", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
             Span::raw("  Alternar  •  "),
             Span::styled("ESC", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::raw(" / "),
+            Span::styled("Q", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
             Span::raw("  Sair"),
         ]))
         .style(Style::default().fg(Color::DarkGray))
@@ -367,7 +382,7 @@ mod app {
 
     fn handle_key_event(key: KeyEvent, state: &mut UiState) {
         match key.code {
-            KeyCode::Esc => {
+            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
                 state.running = false;
             }
             KeyCode::Tab | KeyCode::Down => {
