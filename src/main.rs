@@ -29,7 +29,7 @@ mod app {
     use windows::Win32::System::Threading::SetProcessShutdownParameters;
     use windows::Win32::UI::WindowsAndMessaging::{
         CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, MSG, PM_REMOVE,
-        PeekMessageW, PostQuitMessage, RegisterClassExW, TranslateMessage, WM_DESTROY,
+        PeekMessageW, RegisterClassExW, TranslateMessage, WM_DESTROY,
         WM_ENDSESSION, WM_QUERYENDSESSION, WM_QUIT, WNDCLASSEXW,
         HWND_MESSAGE, WINDOW_EX_STYLE,
     };
@@ -349,6 +349,10 @@ mod app {
             Span::raw(" / "),
             Span::styled("↑↓", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
             Span::raw("  Navegar  •  "),
+            Span::styled("M", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::raw(" Monitor  •  "),
+            Span::styled("S", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::raw(" Shutdown  •  "),
             Span::styled("SPACE", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
             Span::raw(" / "),
             Span::styled("ENTER", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
@@ -378,6 +382,14 @@ mod app {
                     1 => state.no_kill = !state.no_kill,
                     _ => {}
                 }
+            }
+            KeyCode::Char('m') | KeyCode::Char('M') => {
+                state.selected = 0;
+                state.no_monitor = !state.no_monitor;
+            }
+            KeyCode::Char('s') | KeyCode::Char('S') => {
+                state.selected = 1;
+                state.no_kill = !state.no_kill;
             }
             _ => {}
         }
@@ -560,7 +572,6 @@ mod app {
                 }
             }
             WM_DESTROY => {
-                unsafe { PostQuitMessage(0); }
                 return LRESULT(0);
             }
             _ => {}
