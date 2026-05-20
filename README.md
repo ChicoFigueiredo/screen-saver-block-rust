@@ -83,7 +83,7 @@ Clique direto nas linhas dos botões na TUI para alternar os estados.
 
 - **Rust stable** — instale em [rustup.rs](https://rustup.rs)
 - **Windows** (obrigatório — usa APIs Win32)
-- Toolchain **GNU**: MinGW (`dlltool.exe`) no `PATH`
+- Toolchain **GNU**: MinGW (`dlltool.exe`) no `PATH` se você quiser compilar nesse ambiente
 - Toolchain **MSVC**: Visual Studio Build Tools *(necessário para ícone no .exe)*
 
 ### Comandos
@@ -103,6 +103,22 @@ cargo run
 ```
 
 O executável de release fica em `target/release/screen-saver-blocker-rust.exe`.
+
+Se `cargo build --release` falhar no Windows com erro de linkagem como `unable to find library -lgcc_eh` ou `-lgcc`, use o script [build-msvc.cmd](build-msvc.cmd). Ele força o toolchain MSVC, que é o caminho mais estável para este projeto no Windows.
+
+> **Importante:** o script depende do toolchain `stable-x86_64-pc-windows-msvc` estar instalado no `rustup`. Em máquinas que tenham apenas `*-windows-gnu`, ele pode falhar com erro como `toolchain 'stable-x86_64-pc-windows-msvc' is not installed`.
+>
+> Instale o toolchain com:
+>
+> ```bash
+> rustup toolchain install stable-x86_64-pc-windows-msvc
+> ```
+>
+> Se quiser tornar MSVC o padrão da máquina, você também pode usar:
+>
+> ```bash
+> rustup default stable-x86_64-pc-windows-msvc
+> ```
 
 ### Ícone no executável
 
