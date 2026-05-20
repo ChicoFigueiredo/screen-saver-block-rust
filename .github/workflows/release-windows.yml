@@ -176,7 +176,34 @@ jobs:
             Write-Host "Certificate not configured. Skipping code signing."
           }
 
-          Compress-Archive -Path $exe -DestinationPath "dist/screen-saver-blocker-windows-x64.zip" -Force
+          $zipPath = "dist/screen-saver-blocker-windows-x64.zip"
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+
+          Add-Type -AssemblyName System.IO.Compression
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+          try {
+            $entryName = "screen-saver-blocker-windows-x64.exe"
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $exe, $entryName) | Out-Null
+          }
+          finally {
+            $zip.Dispose()
+          }
+
+          $zipRead = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+          try {
+            $entry = $zipRead.Entries |
+              Where-Object { $_.FullName -eq "screen-saver-blocker-windows-x64.exe" } |
+              Select-Object -First 1
+            if (-not $entry) {
+              throw "Zip validation failed: .exe entry not found with expected name"
+            }
+          }
+          finally {
+            $zipRead.Dispose()
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
