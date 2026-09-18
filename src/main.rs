@@ -5,6 +5,7 @@ use eframe::egui::{self, Align2, Color32, FontId, Pos2, Rect, Sense, Stroke, Vec
 use platform::PlatformInhibitor;
 
 const APP_NAME: &str = "Block Screen Saver";
+const APP_ICON: &[u8] = include_bytes!("../assets/preferences-desktop-screensaver.ico");
 
 /// Bloqueia recursos de inatividade e de encerramento enquanto o programa estiver aberto.
 #[derive(Debug, Parser)]
@@ -257,12 +258,24 @@ fn protection_switch(ui: &mut egui::Ui, value: &mut bool, title: &str, subtitle:
     );
 }
 
+fn app_icon() -> egui::IconData {
+    let image = image::load_from_memory_with_format(APP_ICON, image::ImageFormat::Ico)
+        .expect("o ícone incorporado deve ser um arquivo ICO válido")
+        .into_rgba8();
+    egui::IconData {
+        width: image.width(),
+        height: image.height(),
+        rgba: image.into_raw(),
+    }
+}
+
 fn main() -> eframe::Result {
     let args = Args::parse();
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([560.0, 420.0])
-            .with_min_inner_size([500.0, 390.0]),
+            .with_min_inner_size([500.0, 390.0])
+            .with_icon(app_icon()),
         ..Default::default()
     };
 

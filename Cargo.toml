@@ -4,10 +4,15 @@ version = "0.3.0"
 edition = "2024"
 description = "Bloqueia o protetor de tela e o encerramento de sessão no Windows e Linux"
 license = "MIT"
+build = "build.rs"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
 eframe = { version = "0.31", default-features = true }
+image = { version = "0.25", default-features = false, features = ["ico"] }
+
+[build-dependencies]
+winres = "0.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "5", features = ["blocking"] }

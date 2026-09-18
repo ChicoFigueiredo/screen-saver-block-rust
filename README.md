@@ -5,6 +5,8 @@ Aplicativo Rust com janela nativa para Windows e Linux. Ele mantém duas travas 
 - bloqueio de protetor/desligamento automático da tela;
 - bloqueio de logoff e de encerramento de sessão.
 
+O aplicativo usa o ícone legado `preferences-desktop-screensaver` como ícone da janela e do executável Windows.
+
 A interface usa `eframe`/`egui` sobre `winit`, portanto não depende de um gerenciador de janelas específico. As integrações ficam isoladas por plataforma:
 
 | Sistema | Tela | Sessão |
