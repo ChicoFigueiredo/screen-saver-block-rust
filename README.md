@@ -57,4 +57,4 @@ O binário final fica em `target/release/block-screen-saver` no Linux e em `targ
 
 ## Releases
 
-Ao enviar uma tag no formato `v*`, a pipeline do GitHub Actions compila os binários Linux e Windows e os anexa automaticamente a uma GitHub Release. Por exemplo, a versão atual é publicada com a tag `v0.3.0`.
+Todo PR para `main` roda validação de build em Linux e Windows. Quando um PR é mesclado, a pipeline incrementa automaticamente o terceiro dígito da versão, atualiza os manifestos, cria a tag e publica uma GitHub Release com ambos os binários. A pipeline também pode ser executada manualmente para publicar a próxima versão de patch.
