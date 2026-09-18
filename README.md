@@ -52,3 +52,7 @@ build.bat check
 ```
 
 O binário final fica em `target/release/block-screen-saver` no Linux e em `target\release\block-screen-saver.exe` no Windows.
+
+## Releases
+
+Ao enviar uma tag no formato `v*`, a pipeline do GitHub Actions compila os binários Linux e Windows e os anexa automaticamente a uma GitHub Release. Por exemplo, a versão atual é publicada com a tag `v0.3.0`.
