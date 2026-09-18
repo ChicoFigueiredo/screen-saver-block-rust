@@ -7,6 +7,8 @@ Aplicativo Rust com janela nativa para Windows e Linux. Ele mantém duas travas 
 
 O aplicativo usa o ícone legado `preferences-desktop-screensaver` como ícone da janela e do executável Windows.
 
+No Windows, o executável inicia diretamente a interface gráfica, sem abrir uma janela de terminal.
+
 A interface usa `eframe`/`egui` sobre `winit`, portanto não depende de um gerenciador de janelas específico. As integrações ficam isoladas por plataforma:
 
 | Sistema | Tela | Sessão |
