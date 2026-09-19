@@ -59,7 +59,7 @@ O binário final fica em `target/release/block-screen-saver` no Linux e em `targ
 
 ### KDE Plasma (Linux)
 
-Quando iniciado diretamente pelo terminal, o Plasma não tem um lançador para associar à janela, então a opção de fixar pode ficar indisponível. Instale o lançador de usuário e abra o aplicativo pelo menu do KDE:
+Quando iniciado diretamente pelo terminal, o Plasma não tem um lançador para associar à janela, então a opção de fixar pode ficar indisponível. Instale o aplicativo globalmente e abra-o pelo menu do KDE:
 
 ```bash
 ./install-linux.sh
@@ -67,7 +67,9 @@ Quando iniciado diretamente pelo terminal, o Plasma não tem um lançador para a
 make install-linux
 ```
 
-Depois, clique com o botão direito no ícone do aplicativo no painel e escolha **Fixar no gerenciador de tarefas**. A instalação usa o identificador de janela compatível com Wayland e X11. Para remover: `./install-linux.sh --uninstall`.
+Se `cargo` estiver disponível, o instalador sempre gera uma build `--release`; sem Cargo, ele usa um binário release já existente. A instalação pede `sudo` quando necessário e coloca o binário em `/usr/local/bin`, o atalho em `/usr/local/share/applications` e o ícone em `/usr/local/share/pixmaps` — portanto fica visível para todos os usuários do ambiente gráfico.
+
+O atalho inicia com `--screen-saver`, deixando o bloqueio de tela ativo por padrão. Depois, clique com o botão direito no ícone do aplicativo no painel e escolha **Fixar no gerenciador de tarefas**. A instalação usa o identificador de janela compatível com Wayland e X11. Para remover: `./install-linux.sh --uninstall`.
 
 ## Releases
 
