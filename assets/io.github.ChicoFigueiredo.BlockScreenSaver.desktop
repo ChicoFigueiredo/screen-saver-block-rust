@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Block Screen Saver
+Comment=Bloqueia o protetor de tela e o encerramento de sessão
+Exec=block-screen-saver
+Icon=preferences-desktop-screensaver
+Terminal=false
+Categories=Utility;
+StartupNotify=true
+StartupWMClass=block-screen-saver
+Keywords=screen;saver;session;idle;lock;

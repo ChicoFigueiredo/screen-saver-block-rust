@@ -7,6 +7,7 @@ use eframe::egui::{self, Align2, Color32, FontId, Pos2, Rect, Sense, Stroke, Vec
 use platform::PlatformInhibitor;
 
 const APP_NAME: &str = "Block Screen Saver";
+const APP_ID: &str = "io.github.ChicoFigueiredo.BlockScreenSaver";
 const APP_ICON: &[u8] = include_bytes!("../assets/preferences-desktop-screensaver.ico");
 
 /// Bloqueia recursos de inatividade e de encerramento enquanto o programa estiver aberto.
@@ -275,6 +276,7 @@ fn main() -> eframe::Result {
     let args = Args::parse();
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
+            .with_app_id(APP_ID)
             .with_inner_size([560.0, 420.0])
             .with_min_inner_size([500.0, 390.0])
             .with_icon(app_icon()),
