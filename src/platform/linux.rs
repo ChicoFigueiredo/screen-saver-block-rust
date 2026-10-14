@@ -1,3 +1,5 @@
+use std::os::fd::AsRawFd;
+
 use zbus::{blocking::Connection, zvariant::OwnedFd};
 
 const APP_ID: &str = "block-screen-saver";
@@ -69,6 +71,12 @@ impl PlatformInhibitor {
             let lock: OwnedFd = proxy
                 .call("Inhibit", &("shutdown", APP_ID, REASON, "block"))
                 .map_err(|error| error.to_string())?;
+            // O zbus recebe o descritor sem `FD_CLOEXEC`; sem a marca ele vazaria
+            // para o processo reaberto e o bloqueio não seria mais liberado.
+            // SAFETY: `lock` é um descritor válido, aberto e de posse deste processo.
+            if unsafe { libc::fcntl(lock.as_raw_fd(), libc::F_SETFD, libc::FD_CLOEXEC) } == -1 {
+                return Err(std::io::Error::last_os_error().to_string());
+            }
             self.session_lock = Some(lock);
         } else {
             self.session_lock = None;

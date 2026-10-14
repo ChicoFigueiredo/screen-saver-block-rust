@@ -517,6 +517,7 @@ dependencies = [
  "clap",
  "eframe",
  "image",
+ "libc",
  "windows 0.61.3",
  "winres",
  "zbus 5.19.0",
