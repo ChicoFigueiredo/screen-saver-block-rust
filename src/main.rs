@@ -1,6 +1,8 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 mod platform;
+#[cfg(target_os = "linux")]
+mod relaunch;
 
 use clap::Parser;
 use eframe::egui::{self, Align2, Color32, FontId, Pos2, Rect, Sense, Stroke, Vec2};
@@ -23,26 +25,43 @@ struct Args {
     session: bool,
 }
 
-struct BlockApp {
+/// Estado efetivo dos bloqueios. Pertence a `main`, e não à janela, para que os
+/// inibidores sobrevivam a uma queda da interface gráfica.
+struct Protection {
     inhibitor: PlatformInhibitor,
     screen_saver: bool,
     session: bool,
-    pending_initial_state: bool,
+    /// Últimos pedidos do usuário, mesmo que o sistema os tenha recusado; é o que
+    /// segue para o processo reaberto. Durante um reinício do KWin, que também
+    /// serve o `org.freedesktop.ScreenSaver`, o pedido pode falhar e não pode se perder.
+    requested_screen_saver: bool,
+    requested_session: bool,
     status: String,
 }
 
-impl BlockApp {
-    fn new(args: Args) -> Self {
+impl Protection {
+    fn new(args: &Args) -> Self {
         Self {
             inhibitor: PlatformInhibitor::new(),
             screen_saver: args.screen_saver,
             session: args.session,
-            pending_initial_state: true,
+            requested_screen_saver: args.screen_saver,
+            requested_session: args.session,
             status: "Pronto.".to_owned(),
         }
     }
 
+    fn apply_initial_state(&mut self) {
+        if self.screen_saver {
+            self.apply_screen_saver(true);
+        }
+        if self.session {
+            self.apply_session(true);
+        }
+    }
+
     fn apply_screen_saver(&mut self, enabled: bool) {
+        self.requested_screen_saver = enabled;
         match self.inhibitor.set_screen_saver(enabled) {
             Ok(()) => {
                 self.screen_saver = enabled;
@@ -62,6 +81,7 @@ impl BlockApp {
     }
 
     fn apply_session(&mut self, enabled: bool) {
+        self.requested_session = enabled;
         match self.inhibitor.set_session(enabled) {
             Ok(()) => {
                 self.session = enabled;
@@ -79,25 +99,24 @@ impl BlockApp {
     }
 }
 
-impl eframe::App for BlockApp {
+struct BlockApp<'a> {
+    protection: &'a mut Protection,
+    pending_initial_state: bool,
+}
+
+impl eframe::App for BlockApp<'_> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // No Windows a janela já precisa existir para registrar o bloqueio de sessão.
+        // Ver `apply_in_first_frame` em `main`.
         if self.pending_initial_state {
             self.pending_initial_state = false;
-            let screen_saver = self.screen_saver;
-            let session = self.session;
-            if screen_saver {
-                self.apply_screen_saver(true);
-            }
-            if session {
-                self.apply_session(true);
-            }
+            self.protection.apply_initial_state();
         }
+        let protection = &mut *self.protection;
 
         egui::CentralPanel::default()
             .frame(egui::Frame::new().inner_margin(egui::Margin::same(22)))
             .show(ctx, |ui| {
-                let active_count = self.screen_saver as u8 + self.session as u8;
+                let active_count = protection.screen_saver as u8 + protection.session as u8;
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
                         ui.heading("Proteção do sistema");
@@ -114,29 +133,29 @@ impl eframe::App for BlockApp {
                 });
 
                 ui.add_space(22.0);
-                let previous_screen_saver = self.screen_saver;
+                let previous_screen_saver = protection.screen_saver;
                 protection_switch(
                     ui,
-                    &mut self.screen_saver,
+                    &mut protection.screen_saver,
                     "Tela sempre ativa",
                     "Evita o protetor e o desligamento automático da tela.",
                     "☼",
                 );
-                if self.screen_saver != previous_screen_saver {
-                    self.apply_screen_saver(self.screen_saver);
+                if protection.screen_saver != previous_screen_saver {
+                    protection.apply_screen_saver(protection.screen_saver);
                 }
 
                 ui.add_space(12.0);
-                let previous_session = self.session;
+                let previous_session = protection.session;
                 protection_switch(
                     ui,
-                    &mut self.session,
+                    &mut protection.session,
                     "Sessão protegida",
                     "Solicita ao sistema que bloqueie encerramento e logoff.",
                     "⌁",
                 );
-                if self.session != previous_session {
-                    self.apply_session(self.session);
+                if protection.session != previous_session {
+                    protection.apply_session(protection.session);
                 }
 
                 ui.add_space(20.0);
@@ -144,7 +163,7 @@ impl eframe::App for BlockApp {
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
                     ui.colored_label(Color32::from_rgb(16, 185, 129), "●");
-                    ui.label(&self.status);
+                    ui.label(&protection.status);
                 });
                 ui.add_space(8.0);
                 ui.small("Início via terminal: --screen-saver --session");
@@ -274,6 +293,14 @@ fn app_icon() -> egui::IconData {
 
 fn main() -> eframe::Result {
     let args = Args::parse();
+    let mut protection = Protection::new(&args);
+    // No Windows a janela já precisa existir para registrar o bloqueio de sessão;
+    // nos demais sistemas o bloqueio entra antes, sem depender da janela.
+    let apply_in_first_frame = cfg!(target_os = "windows");
+    if !apply_in_first_frame {
+        protection.apply_initial_state();
+    }
+
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_app_id(APP_ID)
@@ -283,16 +310,40 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-    eframe::run_native(
-        APP_NAME,
-        native_options,
-        Box::new(|creation_context| {
-            let mut visuals = egui::Visuals::dark();
-            visuals.panel_fill = Color32::from_rgb(15, 23, 42);
-            visuals.window_fill = Color32::from_rgb(15, 23, 42);
-            visuals.override_text_color = Some(Color32::from_rgb(226, 232, 240));
-            creation_context.egui_ctx.set_visuals(visuals);
-            Ok(Box::new(BlockApp::new(args)))
-        }),
-    )
+    #[cfg(target_os = "linux")]
+    let window_started = std::time::Instant::now();
+    // Um panic na janela (winit, sctk) também não pode levar os bloqueios junto.
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        eframe::run_native(
+            APP_NAME,
+            native_options,
+            Box::new(|creation_context| {
+                let mut visuals = egui::Visuals::dark();
+                visuals.panel_fill = Color32::from_rgb(15, 23, 42);
+                visuals.window_fill = Color32::from_rgb(15, 23, 42);
+                visuals.override_text_color = Some(Color32::from_rgb(226, 232, 240));
+                creation_context.egui_ctx.set_visuals(visuals);
+                Ok(Box::new(BlockApp {
+                    protection: &mut protection,
+                    pending_initial_state: apply_in_first_frame,
+                }))
+            }),
+        )
+    }))
+    .unwrap_or_else(|_| {
+        Err(eframe::Error::AppCreation(
+            "a janela entrou em pânico".into(),
+        ))
+    });
+
+    #[cfg(target_os = "linux")]
+    if let Err(error) = &result {
+        eprintln!("A janela foi encerrada com erro: {error}");
+        relaunch::after_window_failure(
+            window_started.elapsed(),
+            protection.requested_screen_saver,
+            protection.requested_session,
+        );
+    }
+    result
 }

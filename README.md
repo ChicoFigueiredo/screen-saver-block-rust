@@ -18,6 +18,8 @@ A interface usa `eframe`/`egui` sobre `winit`, portanto não depende de um geren
 
 No Linux, o bloqueio de sessão requer `systemd-logind` e impede desligamento/reinicialização da máquina. O Linux não tem uma API única, independente do ambiente gráfico, para negar exclusivamente o logoff do usuário; GNOME, KDE e outros ambientes expõem APIs próprias para isso. O bloqueio de tela requer que a sessão ofereça a interface D-Bus padronizada de ScreenSaver (GNOME, KDE e vários outros ambientes a oferecem).
 
+No Wayland, o compositor pode derrubar a conexão da janela quando monitores são desligados e religados. No Linux os bloqueios não dependem da janela: se ela cair com erro, o programa se reabre sozinho no mesmo processo, com os bloqueios que estavam ligados, sem soltá-los durante a troca. Após cinco quedas seguidas logo na abertura (como no logoff), ele desiste.
+
 ## Executar
 
 ```bash
