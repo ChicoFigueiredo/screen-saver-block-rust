@@ -11,7 +11,12 @@ mod windows;
 #[cfg(target_os = "windows")]
 pub use windows::PlatformInhibitor;
 
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(target_os = "macos")]
+pub use macos::PlatformInhibitor;
+
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
 mod unsupported {
     #[derive(Default)]
     pub struct PlatformInhibitor;
@@ -30,5 +35,5 @@ mod unsupported {
         }
     }
 }
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
 pub use unsupported::PlatformInhibitor;
