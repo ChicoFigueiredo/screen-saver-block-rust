@@ -2,7 +2,7 @@
 name = "block-screen-saver"
 version = "0.3.5"
 edition = "2024"
-description = "Bloqueia o protetor de tela e o encerramento de sessão no Windows e Linux"
+description = "Bloqueia o protetor de tela e o encerramento de sessão no Windows, Linux e macOS"
 license = "MIT"
 build = "build.rs"
 
@@ -17,6 +17,10 @@ winres = "0.1"
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2"
 zbus = { version = "5", features = ["blocking"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.9"
+objc2 = "0.6"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = [

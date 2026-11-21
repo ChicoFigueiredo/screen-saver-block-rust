@@ -1,7 +1,7 @@
 APP := block-screen-saver
 CARGO ?= cargo
 
-.PHONY: help check test build build-debug install-linux run clean
+.PHONY: help check test build build-debug bundle-macos install-linux run clean
 
 help:
 	@echo "Targets disponíveis:"
@@ -9,6 +9,7 @@ help:
 	@echo "  make test                  Executa os testes"
 	@echo "  make build                 Gera o binário otimizado (release)"
 	@echo "  make build-debug           Gera o binário de desenvolvimento"
+	@echo "  make bundle-macos          Gera o .app universal e o .zip do macOS"
 
 	@echo "  make install-linux         Instala o lançador para o usuário Linux"
 	@echo "  make run RUN_ARGS='...'    Executa com argumentos opcionais"
@@ -25,6 +26,9 @@ build:
 
 build-debug:
 	$(CARGO) build
+
+bundle-macos:
+	./packaging/macos/build-app.sh
 
 install-linux:
 	./install-linux.sh

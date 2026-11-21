@@ -294,9 +294,9 @@ fn app_icon() -> egui::IconData {
 fn main() -> eframe::Result {
     let args = Args::parse();
     let mut protection = Protection::new(&args);
-    // No Windows a janela já precisa existir para registrar o bloqueio de sessão;
-    // nos demais sistemas o bloqueio entra antes, sem depender da janela.
-    let apply_in_first_frame = cfg!(target_os = "windows");
+    // No Windows e no macOS a janela já precisa existir para registrar o bloqueio
+    // de sessão; no Linux o bloqueio entra antes, sem depender da janela.
+    let apply_in_first_frame = cfg!(any(target_os = "windows", target_os = "macos"));
     if !apply_in_first_frame {
         protection.apply_initial_state();
     }

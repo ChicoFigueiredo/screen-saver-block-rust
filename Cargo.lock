@@ -515,9 +515,11 @@ name = "block-screen-saver"
 version = "0.3.5"
 dependencies = [
  "clap",
+ "core-foundation",
  "eframe",
  "image",
  "libc",
+ "objc2 0.6.4",
  "windows 0.61.3",
  "winres",
  "zbus 5.19.0",
